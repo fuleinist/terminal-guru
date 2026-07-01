@@ -45,11 +45,10 @@ impl std::fmt::Display for Analysis {
 pub fn analyze(entries: &[HistoryEntry]) -> Analysis {
     let total_commands = entries.len();
 
-    // Count command frequency
+    // Count full command frequency (not just base)
     let mut freq: HashMap<String, usize> = HashMap::new();
     for entry in entries {
-        let base = entry.command.split_whitespace().next().unwrap_or(&entry.command).to_string();
-        *freq.entry(base).or_insert(0) += 1;
+        *freq.entry(entry.command.clone()).or_insert(0) += 1;
     }
 
     let unique_commands = freq.len();

@@ -26,6 +26,17 @@ pub enum Command {
         #[command(subcommand)]
         action: DaemonAction,
     },
+    /// Apply a suggestion as an alias
+    Apply {
+        /// Suggestion ID to apply
+        id: i64,
+    },
+    /// List all suggestions
+    List {
+        /// Show only unapplied suggestions
+        #[arg(long)]
+        unapplied: bool,
+    },
 }
 
 #[derive(Subcommand)]

@@ -48,7 +48,7 @@ pub fn generate(analysis: &Analysis) -> Vec<Suggestion> {
                     kind: "sequence".into(),
                     alias: Some(alias),
                     command: combined,
-                    frequency: 0, // unknown from sequence data
+                    frequency: 0,
                     description: format!("Frequent sequence: `{}` then `{}`", seq[0], seq[1]),
                 });
             }
@@ -70,31 +70,27 @@ pub fn generate(analysis: &Analysis) -> Vec<Suggestion> {
 }
 
 fn suggest_alias(cmd: &str) -> Option<String> {
-    let base = cmd.split_whitespace().next()?;
+    let parts: Vec<&str> = cmd.split_whitespace().collect();
+    let base = parts.first()?;
 
-    // Common aliases
-    let alias = match base {
+    let alias = match *base {
         "docker" => {
-            let sub = cmd.split_whitespace().nth(1)?;
-            match sub {
-                "compose" => {
-                    let action = cmd.split_whitespace().nth(2)?;
-                    match action {
-                        "up" => Some("dcup"),
-                        "down" => Some("dcdown"),
-                        "logs" => Some("dclogs"),
-                        "ps" => Some("dcps"),
-                        _ => None,
-                    }
-                }
-                "ps" => Some("dps"),
-                "images" => Some("dimg"),
+            if parts.len() < 3 { return None; }
+            let sub = parts[1];
+            let action = parts[2];
+            match (sub, action) {
+                ("compose", "up") => Some("dcup"),
+                ("compose", "down") => Some("dcdown"),
+                ("compose", "logs") => Some("dclogs"),
+                ("compose", "ps") => Some("dcps"),
+                ("ps", _) => Some("dps"),
+                ("images", _) => Some("dimg"),
                 _ => None,
             }
         }
         "git" => {
-            let sub = cmd.split_whitespace().nth(1)?;
-            match sub {
+            let sub = parts.get(1)?;
+            match *sub {
                 "status" => Some("gst"),
                 "add" => Some("ga"),
                 "commit" => Some("gc"),
@@ -112,8 +108,5 @@ fn suggest_alias(cmd: &str) -> Option<String> {
         _ => None,
     };
 
-    alias.map(|a| {
-        // Avoid collisions with existing aliases
-        if a.len() <= 3 { a.to_string() } else { a.to_string() }
-    })
+    alias.map(|a| a.to_string())
 }

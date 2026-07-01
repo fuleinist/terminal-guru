@@ -28,6 +28,9 @@ tguru apply <suggestion-id>
 - [x] `tguru suggest` — analyze shell history and suggest aliases/optimizations
 - [x] `tguru stats` — show terminal usage statistics
 - [x] `tguru daemon start|status|stop` — background daemon
+- [x] `tguru apply <id>` — mark a suggestion as applied
+- [x] `tguru list [--unapplied]` — list persisted suggestions
+- [x] SQLite persistence for suggestions and daemon state
 - [x] Reads zsh/bash/powershell/fish history files
 - [x] Identifies frequent command sequences
 - [x] Suggests aliases for repeated commands
