@@ -1,4 +1,6 @@
 use terminal_guru::analyzer;
+use terminal_guru::shell;
+use terminal_guru::shell::Shell;
 use terminal_guru::suggest;
 use terminal_guru::db::Database;
 
@@ -123,4 +125,40 @@ fn test_daemon_state() {
 
     let missing = db.get_daemon_state("nonexistent").unwrap();
     assert_eq!(missing, None);
+}
+
+#[test]
+fn test_get_suggestion() {
+    let db = Database::open_in_memory().unwrap();
+    db.record_suggestion("alias", Some("gst"), "git status", 10, "Test").unwrap();
+
+    let fetched = db.get_suggestion(1).unwrap().expect("should find suggestion");
+    assert_eq!(fetched.id, 1);
+    assert_eq!(fetched.alias.as_deref(), Some("gst"));
+    assert_eq!(fetched.command, "git status");
+
+    let missing = db.get_suggestion(999).unwrap();
+    assert!(missing.is_none());
+}
+
+#[test]
+fn test_shell_module_renders_per_shell() {
+    assert!(Shell::Bash.render_alias("g", "git").contains("alias g='git'"));
+    assert!(Shell::Zsh.render_alias("g", "git").contains("alias g='git'"));
+    assert!(Shell::Fish.render_alias("g", "git").contains("alias g 'git'"));
+    assert!(Shell::PowerShell.render_alias("g", "git").contains("Set-Alias"));
+}
+
+#[test]
+fn test_shell_detect_from_env() {
+    let original = std::env::var("SHELL").ok();
+    std::env::set_var("SHELL", "/bin/zsh");
+    assert_eq!(shell::detect_shell(), Shell::Zsh);
+    std::env::set_var("SHELL", "/usr/bin/bash");
+    assert_eq!(shell::detect_shell(), Shell::Bash);
+    if let Some(v) = original {
+        std::env::set_var("SHELL", v);
+    } else {
+        std::env::remove_var("SHELL");
+    }
 }
