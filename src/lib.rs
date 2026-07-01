@@ -4,6 +4,7 @@ pub mod analyzer;
 pub mod suggest;
 pub mod db;
 pub mod daemon;
+pub mod shell;
 
 use clap::Parser;
 use cli::Cli;
@@ -58,8 +59,28 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         cli::Command::Apply { id } => {
+            let suggestion = db
+                .get_suggestion(id)?
+                .ok_or_else(|| format!("No suggestion with id {}", id))?;
+
+            if let Some(alias) = &suggestion.alias {
+                match shell::write_alias(alias, &suggestion.command) {
+                    Ok(path) => println!(
+                        "✓ Added to {}: alias {}='{}'",
+                        path.display(),
+                        alias,
+                        suggestion.command
+                    ),
+                    Err(e) if e.contains("already defined") => {
+                        println!("ℹ️  {}", e);
+                    }
+                    Err(e) => return Err(e.into()),
+                }
+            } else {
+                println!("Suggestion {} has no alias to write.", id);
+            }
+
             db.apply_suggestion(id)?;
-            println!("Suggestion {} applied! Add the alias to your shell config to make it permanent.", id);
         }
         cli::Command::List { unapplied } => {
             let suggestions = db.list_suggestions(unapplied)?;

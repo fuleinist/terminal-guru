@@ -85,6 +85,27 @@ impl Database {
         Ok(())
     }
 
+    /// Fetch a single suggestion by id.
+    pub fn get_suggestion(&self, id: i64) -> Result<Option<SuggestionRow>, Box<dyn std::error::Error>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, kind, alias, command, frequency, description, applied, created_at FROM suggestions WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query_map(params![id], |row| {
+            Ok(SuggestionRow {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                alias: row.get(2)?,
+                command: row.get(3)?,
+                frequency: row.get(4)?,
+                description: row.get(5)?,
+                applied: row.get(6)?,
+                created_at: row.get(7)?,
+            })
+        })?;
+        Ok(rows.next().transpose()?)
+    }
+
     /// List all suggestions.
     pub fn list_suggestions(&self, only_unapplied: bool) -> Result<Vec<SuggestionRow>, Box<dyn std::error::Error>> {
         let conn = self.conn.lock().unwrap();
