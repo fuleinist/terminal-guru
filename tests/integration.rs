@@ -162,3 +162,106 @@ fn test_shell_detect_from_env() {
         std::env::remove_var("SHELL");
     }
 }
+
+// -------- Zsh history reader tests ----------------------------------------
+//
+// Regression coverage for the bug where plain-format zsh entries (the
+// default — `EXTENDED_HISTORY` is unset in most installs) were silently
+// dropped because the parser unconditionally required a ';' separator.
+
+#[test]
+fn test_read_zsh_extended_format() {
+    use terminal_guru::history;
+    use std::io::Write;
+
+    let dir = std::env::temp_dir().join(format!("tguru_zsh_test_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(".zsh_history");
+    let mut f = std::fs::File::create(&path).unwrap();
+    // Extended format: `: <timestamp>:<elapsed>;<command>`
+    writeln!(f, ": 1687999999:0;ls -la").unwrap();
+    writeln!(f, ": 1688000000:0;git status").unwrap();
+    drop(f);
+
+    let entries = history::read_zsh(&path).unwrap();
+    let cmds: Vec<&str> = entries.iter().map(|e| e.command.as_str()).collect();
+    assert_eq!(cmds, vec!["ls -la", "git status"]);
+
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn test_read_zsh_plain_format() {
+    use terminal_guru::history;
+    use std::io::Write;
+
+    let dir = std::env::temp_dir().join(format!("tguru_zsh_plain_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(".zsh_history");
+    let mut f = std::fs::File::create(&path).unwrap();
+    // Plain format (no `: TS:ELAPSED;` prefix) — the zsh default.
+    writeln!(f, "ls -la").unwrap();
+    writeln!(f, "git status").unwrap();
+    writeln!(f, "echo hello").unwrap();
+    drop(f);
+
+    let entries = history::read_zsh(&path).unwrap();
+    let cmds: Vec<&str> = entries.iter().map(|e| e.command.as_str()).collect();
+    assert_eq!(
+        cmds,
+        vec!["ls -la", "git status", "echo hello"],
+        "Plain zsh history entries must be parsed (the previous parser dropped them)"
+    );
+
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn test_read_zsh_mixed_format() {
+    use terminal_guru::history;
+    use std::io::Write;
+
+    let dir = std::env::temp_dir().join(format!("tguru_zsh_mixed_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(".zsh_history");
+    let mut f = std::fs::File::create(&path).unwrap();
+    writeln!(f, ": 1687999999:0;ls -la").unwrap();
+    writeln!(f, "git status").unwrap();
+    writeln!(f, ": 1688000001:0;echo hello").unwrap();
+    writeln!(f, "cargo test").unwrap();
+    drop(f);
+
+    let entries = history::read_zsh(&path).unwrap();
+    let cmds: Vec<&str> = entries.iter().map(|e| e.command.as_str()).collect();
+    assert_eq!(
+        cmds,
+        vec!["ls -la", "git status", "echo hello", "cargo test"],
+        "Both extended and plain entries must parse in the same file"
+    );
+
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn test_read_zsh_skips_blank_lines() {
+    use terminal_guru::history;
+    use std::io::Write;
+
+    let dir = std::env::temp_dir().join(format!("tguru_zsh_blank_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(".zsh_history");
+    let mut f = std::fs::File::create(&path).unwrap();
+    writeln!(f, "").unwrap();
+    writeln!(f, "   ").unwrap();
+    writeln!(f, "ls").unwrap();
+    writeln!(f, "").unwrap();
+    writeln!(f, ": 1687999999:0;").unwrap();
+    writeln!(f, ": 1688000000:0;git status").unwrap();
+    drop(f);
+
+    let entries = history::read_zsh(&path).unwrap();
+    let cmds: Vec<&str> = entries.iter().map(|e| e.command.as_str()).collect();
+    assert_eq!(cmds, vec!["ls", "git status"]);
+
+    std::fs::remove_file(&path).ok();
+}
