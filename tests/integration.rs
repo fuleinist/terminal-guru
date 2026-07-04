@@ -265,3 +265,32 @@ fn test_read_zsh_skips_blank_lines() {
 
     std::fs::remove_file(&path).ok();
 }
+
+// -------- Sequence suggestion frequency -------------------------------
+//
+// Regression coverage for the bug where sequence-kind suggestions
+// (e.g. "alias dcup='docker compose up && docker compose logs'") always
+// reported `frequency = 0` because the analyzer discarded the count when
+// building `Analysis::frequent_sequences`. The Display impl renders
+// `(Nx, ...)` from that field, so the user saw a misleading "0x".
+
+#[test]
+fn test_sequence_suggestions_have_real_frequency() {
+    use terminal_guru::history::HistoryEntry;
+    let mut entries = Vec::new();
+    for _ in 0..5 {
+        entries.push(HistoryEntry { command: "docker compose up".into(), shell: "bash".into(), timestamp: None });
+        entries.push(HistoryEntry { command: "docker compose logs".into(), shell: "bash".into(), timestamp: None });
+    }
+
+    let analysis = analyzer::analyze(&entries);
+    let suggestions = suggest::generate(&analysis);
+    let seq_suggestions: Vec<_> = suggestions.iter().filter(|s| s.kind == "sequence").collect();
+
+    assert!(!seq_suggestions.is_empty(), "Should produce at least one sequence suggestion");
+    for s in &seq_suggestions {
+        assert!(s.frequency > 0, "Sequence suggestion frequency should be > 0, got {} for {}", s.frequency, s.command);
+    }
+    let max_freq = seq_suggestions.iter().map(|s| s.frequency).max().unwrap();
+    assert_eq!(max_freq, 5, "The most-frequent sequence runs 5 times; the most-emitted suggestion should report 5");
+}

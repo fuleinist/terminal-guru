@@ -40,7 +40,7 @@ pub fn generate(analysis: &Analysis) -> Vec<Suggestion> {
     }
 
     // Suggest aliases for frequent sequences
-    for seq in &analysis.frequent_sequences {
+    for (seq, frequency) in analysis.frequent_sequences.iter().zip(analysis.frequent_sequence_counts.iter()) {
         if seq.len() == 2 {
             let combined = format!("{} && {}", seq[0], seq[1]);
             if let Some(alias) = suggest_alias(&combined) {
@@ -48,7 +48,7 @@ pub fn generate(analysis: &Analysis) -> Vec<Suggestion> {
                     kind: "sequence".into(),
                     alias: Some(alias),
                     command: combined,
-                    frequency: 0,
+                    frequency: *frequency,
                     description: format!("Frequent sequence: `{}` then `{}`", seq[0], seq[1]),
                 });
             }

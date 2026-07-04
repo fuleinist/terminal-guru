@@ -8,6 +8,8 @@ pub struct Analysis {
     pub unique_commands: usize,
     pub top_commands: Vec<(String, usize)>,
     pub frequent_sequences: Vec<Vec<String>>,
+    /// Count for each entry in `frequent_sequences` (parallel vector; same length).
+    pub frequent_sequence_counts: Vec<usize>,
     pub anti_patterns: Vec<AntiPattern>,
     pub shell_breakdown: HashMap<String, usize>,
 }
@@ -67,10 +69,9 @@ pub fn analyze(entries: &[HistoryEntry]) -> Analysis {
         .filter(|(_, count)| *count >= 3)
         .collect();
     sequences.sort_by(|a, b| b.1.cmp(&a.1));
-    let frequent_sequences: Vec<Vec<String>> = sequences.into_iter()
-        .take(5)
-        .map(|(seq, _)| seq)
-        .collect();
+    let top_sequences: Vec<(Vec<String>, usize)> = sequences.into_iter().take(5).collect();
+    let frequent_sequences: Vec<Vec<String>> = top_sequences.iter().map(|(s, _)| s.clone()).collect();
+    let frequent_sequence_counts: Vec<usize> = top_sequences.into_iter().map(|(_, c)| c).collect();
 
     // Detect anti-patterns
     let anti_patterns = detect_anti_patterns(entries);
@@ -86,6 +87,7 @@ pub fn analyze(entries: &[HistoryEntry]) -> Analysis {
         unique_commands,
         top_commands: top,
         frequent_sequences,
+        frequent_sequence_counts,
         anti_patterns,
         shell_breakdown,
     }
